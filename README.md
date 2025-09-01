@@ -104,3 +104,4 @@ Update the backend URL in `frontend/index.html` to your deployed URL (e.g., `htt
 ---
 
 ## 📜 License
+This project is licensed under the **MIT License**. For more details, see the `LICENSE` file in the repository.
