@@ -1,16 +1,11 @@
 import struct
 from PIL import Image
-
-MAGIC = b"STEG"          # Signature to recognize valid stego
-HEADER_FMT = "<I"        # Unsigned 4-byte little-endian length
-
-
+MAGIC = b"STEG"         
+HEADER_FMT = "<I"        
 def _ensure_rgb(img: Image.Image) -> Image.Image:
     if img.mode != "RGB":
         return img.convert("RGB")
     return img
-
-
 def _bits_to_bytes(bits_iter, nbytes: int) -> bytes:
     """Read nbytes from iterator of bits (lsb-first)."""
     out = bytearray()
@@ -24,13 +19,7 @@ def _bits_to_bytes(bits_iter, nbytes: int) -> bytes:
     except StopIteration:
         raise ValueError("Not enough data in image to reconstruct message.")
     return bytes(out)
-
-
 def encode_message_in_image(image_path: str, message: bytes, output_path: str) -> dict:
-    """
-    Hide message in an image using LSB steganography.
-    Returns info dict with capacity and used bytes.
-    """
     img = Image.open(image_path)
     img = _ensure_rgb(img)
     pixels = list(img.getdata())
@@ -42,24 +31,17 @@ def encode_message_in_image(image_path: str, message: bytes, output_path: str) -
     for byte in payload:
         for bit_index in range(8):
             bits.append((byte >> bit_index) & 1)
-
     capacity = len(pixels) * 3  # 3 channels per pixel
     if len(bits) > capacity:
         raise ValueError("Message too large for this image.")
-
     flat_channels = []
     for r, g, b in pixels:
         flat_channels.extend([r, g, b])
-
     for i, bit in enumerate(bits):
         flat_channels[i] = (flat_channels[i] & ~1) | bit
-
-    # Repack pixels
     new_pixels = [tuple(flat_channels[i:i + 3]) for i in range(0, len(flat_channels), 3)]
     img.putdata(new_pixels)
     img.save(output_path)
-
-    # Return info for frontend
     return {
         "width": img.width,
         "height": img.height,
@@ -67,37 +49,24 @@ def encode_message_in_image(image_path: str, message: bytes, output_path: str) -
         "used_bytes": len(payload),
         "saved_as": output_path
     }
-
-
 def decode_message_from_image(image_path: str) -> bytes:
-    """
-    Extract payload bytes from image. Validates MAGIC and length header.
-    Returns payload bytes (without header).
-    """
     img = Image.open(image_path)
     img = _ensure_rgb(img)
     pixels = list(img.getdata())
     flat_channels = []
     for r, g, b in pixels:
         flat_channels.extend([r, g, b])
-
-    # Create an iterator of LSBs
     def lsb_iter():
         for ch in flat_channels:
             yield ch & 1
-
     bits = lsb_iter()
-
-    # Read MAGIC + length header
     header_len = len(MAGIC) + struct.calcsize(HEADER_FMT)
     header_bytes = _bits_to_bytes(bits, header_len)
     if not header_bytes.startswith(MAGIC):
         raise ValueError("No valid stego header found (MAGIC mismatch).")
-
     length = struct.unpack(HEADER_FMT, header_bytes[len(MAGIC):])[0]
     if length < 0:
         raise ValueError("Invalid payload length in header.")
-
-    # Read payload
     payload = _bits_to_bytes(bits, length)
     return payload
+
