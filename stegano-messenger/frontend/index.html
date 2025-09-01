@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en" ng-app="steganoApp">
+<head>
+  <meta charset="utf-8"/>
+  <title>Steganography + Encryption Messenger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.3/angular.min.js"></script>
+  <link rel="stylesheet" href="assets/css/style.css"/>
+</head>
+<body ng-controller="MainCtrl as vm">
+  <header>
+    <h1>🔐 Steganography + Encryption Messenger</h1>
+    <p class="subtitle">Encrypt a message, hide it inside an image, and reveal it later with a key.</p>
+  </header>
+
+  <main class="container">
+    <div class="tabs">
+      <button ng-class="{active: vm.tab==='hide'}" ng-click="vm.tab='hide'">Encrypt & Hide</button>
+      <button ng-class="{active: vm.tab==='reveal'}" ng-click="vm.tab='reveal'">Extract & Reveal</button>
+    </div>
+
+    <!-- Encrypt & Hide -->
+    <section ng-show="vm.tab==='hide'" class="card">
+      <h2>Encrypt & Hide</h2>
+      <form ng-submit="vm.hide()" enctype="multipart/form-data" novalidate>
+        <div class="form-row">
+          <label>Cover Image (PNG/JPG/BMP):</label>
+          <input type="file" id="hideImage" accept=".png,.jpg,.jpeg,.bmp" onchange="angular.element(this).scope().vm.onHideFile(this.files)"/>
+        </div>
+
+        <div class="preview" ng-if="vm.hidePreview">
+          <img ng-src="{{vm.hidePreview}}" alt="cover preview"/>
+        </div>
+
+        <div class="form-row">
+          <label>Secret Message:</label>
+          <textarea ng-model="vm.secretMessage" placeholder="Type your secret..." required></textarea>
+        </div>
+
+        <button type="submit">Create Stego Image</button>
+      </form>
+
+      <div class="result" ng-if="vm.hideResult">
+        <h3>Success ✅</h3>
+        <p><strong>Your Key:</strong> <code class="wrap">{{vm.hideResult.key}}</code></p>
+        <p>
+          <a ng-href="{{vm.backendBase + vm.hideResult.download_url}}" download>Download Stego Image</a>
+        </p>
+        <small>
+          Capacity: {{vm.hideResult.image_info.capacity_bytes}} bytes &nbsp;|&nbsp;
+          Used: {{vm.hideResult.image_info.used_bytes}} bytes
+        </small>
+      </div>
+
+      <div class="error" ng-if="vm.hideError">{{vm.hideError}}</div>
+    </section>
+
+    <!-- Extract & Reveal -->
+    <section ng-show="vm.tab==='reveal'" class="card">
+      <h2>Extract & Reveal</h2>
+      <form ng-submit="vm.reveal()" enctype="multipart/form-data" novalidate>
+        <div class="form-row">
+          <label>Stego Image:</label>
+          <input type="file" id="revealImage" accept=".png,.jpg,.jpeg,.bmp" onchange="angular.element(this).scope().vm.onRevealFile(this.files)"/>
+        </div>
+
+        <div class="preview" ng-if="vm.revealPreview">
+          <img ng-src="{{vm.revealPreview}}" alt="stego preview"/>
+        </div>
+
+        <div class="form-row">
+          <label>Key:</label>
+          <input type="text" ng-model="vm.revealKey" placeholder="Paste your key here" required/>
+        </div>
+
+        <button type="submit">Reveal Message</button>
+      </form>
+
+      <div class="result" ng-if="vm.revealResult">
+        <h3>Decrypted Message ✅</h3>
+        <pre class="wrap">{{vm.revealResult.secret}}</pre>
+      </div>
+
+      <div class="error" ng-if="vm.revealError">{{vm.revealError}}</div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Note: Output is saved as PNG to keep the hidden data intact.</small>
+  </footer>
+
+  <script>
+    angular.module('steganoApp', [])
+      .controller('MainCtrl', ['$http', '$scope', function($http, $scope) {
+        var vm = this;
+        vm.backendBase = 'http://localhost:5000';
+        vm.tab = 'hide';
+
+        vm.onHideFile = function(files){
+          vm.hideFile = files && files[0];
+          if (vm.hideFile) {
+            const reader = new FileReader();
+            reader.onload = e => $scope.$apply(()=> vm.hidePreview = e.target.result);
+            reader.readAsDataURL(vm.hideFile);
+          } else {
+            vm.hidePreview = null;
+          }
+        };
+
+        vm.onRevealFile = function(files){
+          vm.revealFile = files && files[0];
+          if (vm.revealFile) {
+            const reader = new FileReader();
+            reader.onload = e => $scope.$apply(()=> vm.revealPreview = e.target.result);
+            reader.readAsDataURL(vm.revealFile);
+          } else {
+            vm.revealPreview = null;
+          }
+        };
+
+        vm.hide = function(){
+          vm.hideError = null; vm.hideResult = null;
+          if (!vm.hideFile) { vm.hideError = "Please choose a cover image."; return; }
+          if (!vm.secretMessage || !vm.secretMessage.trim()) { vm.hideError = "Message cannot be empty."; return; }
+
+          var form = new FormData();
+          form.append('image', vm.hideFile);
+          form.append('message', vm.secretMessage);
+
+          $http.post(vm.backendBase + '/api/hide', form, {
+            transformRequest: angular.identity,
+            headers: { 'Content-Type': undefined }
+          }).then(function(res){
+            vm.hideResult = res.data;
+          }).catch(function(err){
+            vm.hideError = (err.data && err.data.error) ? err.data.error : 'Something went wrong.';
+          });
+        };
+
+        vm.reveal = function(){
+          vm.revealError = null; vm.revealResult = null;
+          if (!vm.revealFile) { vm.revealError = "Please choose a stego image."; return; }
+          if (!vm.revealKey || !vm.revealKey.trim()) { vm.revealError = "Please paste the key."; return; }
+
+          var form = new FormData();
+          form.append('image', vm.revealFile);
+          form.append('key', vm.revealKey);
+
+          $http.post(vm.backendBase + '/api/reveal', form, {
+            transformRequest: angular.identity,
+            headers: { 'Content-Type': undefined }
+          }).then(function(res){
+            vm.revealResult = res.data;
+          }).catch(function(err){
+            vm.revealError = (err.data && err.data.error) ? err.data.error : 'Something went wrong.';
+          });
+        };
+      }]);
+  </script>
+</body>
+</html>
