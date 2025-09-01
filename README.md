@@ -51,15 +51,18 @@ The project combines:
 ## File Structure
 ## 📂 File Structure
 
+```sh
+```
 steg_messenger/
-├─ backend/
-│  ├─ crypto_utils.py     # Encryption and decryption logic
-│  ├─ app.py              # Flask backend main application
-│  └─ stegano_utils.py    # Steganography logic
-├─ frontend/
-│  ├─ index.html          # AngularJS frontend
-│  └─ assets/css/style.css # Styles
-└─ requirements.txt        # Python dependencies
+├── backend/
+│   ├── crypto_utils.py     # Encryption and decryption logic
+│   ├── app.py              # Flask backend main application
+│   └── stegano_utils.py    # Steganography logic
+├── frontend/
+│   ├── index.html          # AngularJS frontend
+│   └── assets/css/style.css # Styles
+└── requirements.txt        # Python dependencies
+```
 
 
 ---
