@@ -62,6 +62,7 @@ steg_messenger/
 │   ├── index.html          # AngularJS frontend
 │   └── assets/css/style.css # Styles
 └── requirements.txt        # Python dependencies
+
 ```
 
 
